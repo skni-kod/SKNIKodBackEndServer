@@ -17,8 +17,8 @@ from dj_rest_auth.registration.views import SocialAccountListView, SocialAccount
 from django.contrib import admin
 
 
-from django.conf.urls import include
-from django.urls import re_path
+from django.urls import include, re_path
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from dynamic_preferences.api.viewsets import GlobalPreferencesViewSet
 from rest_framework import routers
 from rest_framework_simplejwt.views import (
@@ -29,8 +29,8 @@ from rest_framework_simplejwt.views import (
 from django.conf.urls.static import static
 
 from RESTApi.views import IndexTemplateView
+from RESTApi.site_settings import SiteSettingsView
 from . import settings
-from rest_framework_swagger.views import get_swagger_view
 from RESTApi import views
 
 router = routers.DefaultRouter()
@@ -39,8 +39,6 @@ router.register(r'global', GlobalPreferencesViewSet)
 api_patterns = [
     re_path(r'^preferences/', include(router.urls))
 ]
-
-schema_view = get_swagger_view(title='SKNI KOD Website API')
 
 urlpatterns = [
     re_path(r'^$', IndexTemplateView.as_view()),
@@ -94,7 +92,9 @@ urlpatterns = [
     re_path(r'^api/sponsors/(?P<pk>\d+)/$', views.SponsorViewSetDetail.as_view(), name='sponsor_detail'),
     re_path(r'^api/generic_links/$', views.GenericLinkViewSetList.as_view(), name='generic_link_detail'),
     re_path(r'^api/generic_links/(?P<pk>\d+)/$', views.GenericLinkViewSetDetail.as_view(), name='generic_link_list'),
+    re_path(r'^api/site_settings/$', SiteSettingsView.as_view(), name='site_settings'),
     re_path(r'^api/footer_links/$', views.FooterLinkListView.as_view(), name='footer_link_detail'),
     re_path(r'^api/footer_links/(?P<pk>\d+)/$', views.FooterLinkDetailView.as_view(), name='footer_link_list'),
-    re_path(r'^docs$', schema_view),
+    re_path(r'^schema/$', SpectacularAPIView.as_view(), name='schema'),
+    re_path(r'^docs$', SpectacularSwaggerView.as_view(url_name='schema'), name='docs'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -62,10 +62,21 @@ class UserViewSetDetail(APIView):
         serializer = UserSerializer(queryset)
         return Response(serializer.data)
 
+    def update_serializer(self, request, instance, partial):
+        if not request.user.is_staff:
+            return UserUpdateSerializer(instance, data=request.data, partial=partial)
+        data = request.data.copy()
+        if not request.user.is_superuser:
+            data.pop('is_superuser', None)
+        if instance.pk == request.user.pk:
+            data.pop('is_staff', None)
+            data.pop('is_superuser', None)
+        return AdminUserUpdateSerializer(instance, data=data, partial=partial)
+
     def put(self, request, pk=None, format=None):
         queryset = self.get_object(pk)
         self.check_object_permissions(self.request, queryset)
-        serializer = UserUpdateSerializer(queryset, data=request.data)
+        serializer = self.update_serializer(request, queryset, partial=False)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -80,7 +91,7 @@ class UserViewSetDetail(APIView):
     def patch(self, request,  pk=None, format=None):
         queryset = self.get_object(pk)
         self.check_object_permissions(self.request, queryset)
-        serializer = UserUpdateSerializer(queryset, data=request.data, partial=True)
+        serializer = self.update_serializer(request, queryset, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -89,7 +100,7 @@ class UserViewSetDetail(APIView):
 
 class UserViewSetList(APIView):
     queryset = User.objects.none()
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAdminUser]
 
     def get(self, format=None):
         queryset = User.objects.all().order_by('-date_joined')
@@ -160,7 +171,7 @@ class GroupViewSetList(APIView):
 
 class ProfileViewSetDetail(APIView):
     queryset = Profile.objects.none()
-    permission_classes = [IsOwnerOrAdminForUserViewOrReadOnly]
+    permission_classes = [IsProfileOwnerOrAdminOrReadOnly]
 
     def get_object(self, pk=None):
         try:
@@ -170,11 +181,15 @@ class ProfileViewSetDetail(APIView):
 
     def get(self, request, pk=None, format=None):
         queryset = self.get_object(pk=pk)
-        serializer = ProfileSerializer(queryset)
+        if request.user.is_staff or request.user.id == queryset.user_id:
+            serializer = ProfileSerializer(queryset)
+        else:
+            serializer = PublicProfileSerializer(queryset)
         return Response(serializer.data)
 
     def put(self, request, pk=None, format=None):
         queryset = self.get_object(pk)
+        self.check_object_permissions(self.request, queryset)
         serializer = ProfileSerializer(queryset, data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -183,11 +198,13 @@ class ProfileViewSetDetail(APIView):
 
     def delete(self, request, pk=None, format=None):
         queryset = self.get_object(pk)
+        self.check_object_permissions(self.request, queryset)
         queryset.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     def patch(self, request, pk=None, format=None):
         queryset = self.get_object(pk)
+        self.check_object_permissions(self.request, queryset)
         serializer = ProfileSerializer(queryset, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -197,7 +214,7 @@ class ProfileViewSetDetail(APIView):
 
 class ProfileViewSetList(APIView):
     queryset = Profile.objects.none()
-    permission_classes = [IsOwnerOrAdminForUserViewOrReadOnly]
+    permission_classes = [IsAdminUser]
     pagination_class = LimitOffsetPagination
 
     def get(self, request, format=None):
@@ -316,7 +333,7 @@ class CommentViewSetDetail(APIView):
         self.check_object_permissions(self.request, queryset)
         serializer = CommentSaveSerializer(queryset, data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(user=queryset.user)
             return Response(serializer.data, status=status.HTTP_200_OK)
         else: return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -331,7 +348,7 @@ class CommentViewSetDetail(APIView):
         self.check_object_permissions(self.request, queryset)
         serializer = CommentSaveSerializer(queryset, data=request.data, partial=True)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(user=queryset.user)
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -354,7 +371,7 @@ class CommentViewSetList(APIView):
     def post(self, request, format=None):
         serializer = CommentSaveSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(user=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

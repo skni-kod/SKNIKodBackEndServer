@@ -13,6 +13,8 @@ https://docs.djangoproject.com/en/2.0/ref/settings/
 import os
 import datetime
 
+from django.core.exceptions import ImproperlyConfigured
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -20,10 +22,13 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # See https://docs.djangoproject.com/en/2.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', '97^v4g!vkm-)5#s((utg@q^mkr$octfyv8j(5_+h^6e4o#3%7r')
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured('SECRET_KEY environment variable is required when DEBUG is off')
+    SECRET_KEY = 'insecure-local-development-key'
 
 ALLOWED_HOSTS = ['*']
 
@@ -46,7 +51,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.github',
     'dj_rest_auth',
     'corsheaders',
-    'rest_framework_swagger',
+    'drf_spectacular',
     'sorl.thumbnail',
     'sorl_thumbnail_serializer',
     'dynamic_preferences',
@@ -63,6 +68,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'KoloRESTApi.urls'
@@ -129,8 +135,6 @@ TIME_ZONE = 'UTC'
 
 USE_I18N = True
 
-USE_L10N = True
-
 USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
@@ -151,6 +155,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly',
     ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 SIMPLE_JWT = {
@@ -158,21 +163,13 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': datetime.timedelta(hours=1)
 }
 
-REST_USE_JWT = True
 
 SITE_ID = 1
 
 CORS_ORIGIN_ALLOW_ALL = True
 
-SWAGGER_SETTINGS = {
-    'SECURITY_DEFINITIONS': {
-        'basic': {'type': 'apiKey'},
-        'api_key': {
-            'type': 'apiKey',
-            'in': 'header',
-            'name': 'Authorization'
-        }
-    },
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'SKNI KOD Website API',
 }
 
 LOGIN_URL = 'rest_framework:login'
@@ -190,10 +187,13 @@ STATIC_ROOT = os.path.join(BASE_DIR, "staticfolder")
 
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 
-REST_AUTH_SERIALIZERS = {
+REST_AUTH = {
+    'USE_JWT': True,
+    'JWT_AUTH_HTTPONLY': False,
     'USER_DETAILS_SERIALIZER': 'RESTApi.serializers.UserSerializer',
+    'REGISTER_SERIALIZER': 'RESTApi.serializers.RegisterWithFullNameSerializer',
 }
 
-REST_AUTH_REGISTER_SERIALIZERS = {
-    'REGISTER_SERIALIZER': 'RESTApi.serializers.RegisterWithFullNameSerializer'
+DYNAMIC_PREFERENCES = {
+    'ENABLE_CACHE': False,
 }

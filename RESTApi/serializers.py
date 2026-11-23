@@ -1,4 +1,5 @@
 from allauth.account.adapter import get_adapter
+from allauth.account.models import EmailAddress
 from allauth.account.utils import setup_user_email
 from django.contrib.auth.models import User, Group
 from dj_rest_auth.registration.serializers import RegisterSerializer
@@ -8,11 +9,27 @@ from .models import Profile, ProfileLink, Article, Comment, Tag, \
     Sponsor, Section, GenericLink, Gallery, FooterLink  # ArticleTag, ArticleAuthor
 
 from sorl_thumbnail_serializer.fields import HyperlinkedSorlImageField
+from dynamic_preferences.registries import global_preferences_registry
 
 
 class RegisterWithFullNameSerializer(RegisterSerializer):
     first_name = serializers.CharField(required=True, max_length=150)
     last_name = serializers.CharField(required=True, max_length=150)
+
+    def validate(self, data):
+        if not global_preferences_registry.manager()['general__registration_open']:
+            raise serializers.ValidationError('Registration is closed.')
+        return super().validate(data)
+
+    def validate_email(self, email):
+        # dj-rest-auth >= 3 only rejects verified addresses and e-mail verification is disabled here
+        email = super().validate_email(email)
+        if email and (
+            EmailAddress.objects.filter(email__iexact=email).exists()
+            or User.objects.filter(email__iexact=email).exists()
+        ):
+            raise serializers.ValidationError('A user is already registered with this e-mail address.')
+        return email
 
     def get_cleaned_data(self):
         return {
@@ -37,8 +54,9 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'username', 'email', 'groups', 'profile', 'password',
-                  'first_name', 'last_name', 'is_admin_user', 'permissions')
-        read_only_fields = ('profile', 'groups')
+                  'first_name', 'last_name', 'is_admin_user', 'is_superuser', 'permissions',
+                  'date_joined', 'last_login')
+        read_only_fields = ('profile', 'groups', 'is_superuser', 'date_joined', 'last_login')
         extra_kwargs = {
             'password': {'write_only': True}
         }
@@ -69,7 +87,7 @@ class ProfileWithoutUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Profile
-        fields = ('id', 'description', 'links', 'index_number')
+        fields = ('id', 'description', 'links')
 
 
 class ShortUserSerializer(serializers.ModelSerializer):
@@ -77,13 +95,27 @@ class ShortUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'profile')
+        fields = ('id', 'username', 'first_name', 'last_name', 'profile')
+
+
+class PublicUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'first_name', 'last_name')
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'username', 'email', 'groups', 'profile', 'first_name', 'last_name')
+        read_only_fields = ('profile', 'groups', 'username')
+
+
+class AdminUserUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'email', 'groups', 'profile', 'first_name', 'last_name',
+                  'is_staff', 'is_superuser')
         read_only_fields = ('profile', 'groups', 'username')
 
 
@@ -100,6 +132,15 @@ class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
         fields = ('id', 'user', 'description', 'avatar', 'index_number', 'links')
+
+
+class PublicProfileSerializer(serializers.ModelSerializer):
+    user = PublicUserSerializer(read_only=True)
+    links = GenericLinkSerializer(read_only=True, many=True)
+
+    class Meta:
+        model = Profile
+        fields = ('id', 'user', 'description', 'avatar', 'links')
 
 
 class GallerySerializer(serializers.ModelSerializer):
@@ -160,6 +201,7 @@ class CommentSaveSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = ('id', 'text', 'creation_date', 'article', 'parent', 'user')
+        read_only_fields = ('user',)
 
     def validate(self, data):
         if ('article_id' in data or 'project_id' in data) and not ('article_id' in data and 'project_id' in data):
