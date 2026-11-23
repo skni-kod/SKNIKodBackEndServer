@@ -78,7 +78,7 @@ class ProfileLink(models.Model):
     link = models.URLField()
     user = models.ForeignKey('Profile', on_delete=models.CASCADE,
                              related_name='profile_links')
-    link_type = models.CharField(choices=LINK_TYPES, max_length=100, default='OTHER')
+    link_type = models.CharField(choices=LINK_TYPES, max_length=100)
 
     def __str__(self):
         return "%s: %s" % (self.user.user.username, self.link)
@@ -93,8 +93,12 @@ class Tag(models.Model):
 
 
 class Gallery(models.Model):
+
     gallery_name = models.CharField(max_length=100)
     image = models.ImageField(upload_to="gallery/")
+    thumbnail_visibility = models.BooleanField(default=False)
+    text_visibility = models.BooleanField(default=False)
+    gallery_visibility = models.BooleanField(default=False)
 
     def __str__(self):
         return "%s - %s" % (self.gallery_name, self.image.name)
@@ -108,6 +112,7 @@ class Article(models.Model):
     title = models.CharField(max_length=100)
     alias = models.CharField(max_length=100)
     text = models.TextField()
+    group = models.CharField(max_length=10, choices=(('News', 'News'), ('Article', 'Article')))
     creation_date = models.DateTimeField()
     publication_date = models.DateTimeField(null=True)
     creator = models.ForeignKey(User, on_delete=models.CASCADE,
@@ -219,8 +224,8 @@ class RepoLink(models.Model):
 
     link = models.URLField()
     project = models.ForeignKey('Project', on_delete=models.CASCADE,
-                             related_name='repository_links', null=True)
-    link_type = models.CharField(choices=LINK_TYPES, max_length=100, default='OTHER')
+                             related_name='repository_links')
+    link_type = models.CharField(choices=LINK_TYPES, max_length=100)
 
     def __str__(self):
         return "%s: %s" % (self.project, self.link)
