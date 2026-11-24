@@ -70,6 +70,14 @@ class AnnouncementText(LongStringPreference):
     required = False
 
 
+@global_preferences_registry.register
+class AnnouncementExpiresAt(StringPreference):
+    section = general
+    name = 'announcement_expires_at'
+    default = ''
+    required = False
+
+
 DEFAULT_HISTORY = [
     {
         'year': 1997,

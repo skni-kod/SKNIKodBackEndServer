@@ -30,6 +30,7 @@ from django.conf.urls.static import static
 
 from RESTApi.views import IndexTemplateView
 from RESTApi.site_settings import SiteSettingsView
+from RESTApi.social_news import SocialNewsDetailView, SocialNewsListView
 from . import settings
 from RESTApi import views
 
@@ -93,6 +94,8 @@ urlpatterns = [
     re_path(r'^api/generic_links/$', views.GenericLinkViewSetList.as_view(), name='generic_link_detail'),
     re_path(r'^api/generic_links/(?P<pk>\d+)/$', views.GenericLinkViewSetDetail.as_view(), name='generic_link_list'),
     re_path(r'^api/site_settings/$', SiteSettingsView.as_view(), name='site_settings'),
+    re_path(r'^api/social_news/$', SocialNewsListView.as_view(), name='social_news_list'),
+    re_path(r'^api/social_news/(?P<pk>\d+)/$', SocialNewsDetailView.as_view(), name='social_news_detail'),
     re_path(r'^api/footer_links/$', views.FooterLinkListView.as_view(), name='footer_link_detail'),
     re_path(r'^api/footer_links/(?P<pk>\d+)/$', views.FooterLinkDetailView.as_view(), name='footer_link_list'),
     re_path(r'^schema/$', SpectacularAPIView.as_view(), name='schema'),
